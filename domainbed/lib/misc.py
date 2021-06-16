@@ -1,5 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-
 """
 Things that don't belong anywhere else
 """

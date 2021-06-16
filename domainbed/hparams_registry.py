@@ -1,141 +1,134 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+#!/usr/bin/env python3
 
 import numpy as np
-from domainbed.lib import misc
 
 
-def _define_hparam(hparams, hparam_name, default_val, random_val_fn):
-    hparams[hparam_name] = (hparams, hparam_name, default_val, random_val_fn)
-
-
-def _hparams(algorithm, dataset, random_seed):
+def _hparams(algorithm, dataset, random_state):
     """
     Global registry of hyperparams. Each entry is a (default, random) tuple.
     New algorithms / networks / etc. should add entries here.
     """
-    SMALL_IMAGES = ['Debug28', 'RotatedMNIST', 'ColoredMNIST']
+    RESNET_DATASETS = [
+        "VLCS",
+        "PACS",
+        "PACS_Debug",
+        "PACS_Modified",
+        "OfficeHome",
+        "TerraIncognita",
+        "DomainNet",
+        "YFCC_Geo",
+        "YFCC_Debug",
+    ]
 
     hparams = {}
 
-    def _hparam(name, default_val, random_val_fn):
-        """Define a hyperparameter. random_val_fn takes a RandomState and
-        returns a random hyperparameter value."""
-        assert(name not in hparams)
-        random_state = np.random.RandomState(
-            misc.seed_hash(random_seed, name)
-        )
-        hparams[name] = (default_val, random_val_fn(random_state))
+    hparams['data_augmentation']= (True, lambda r: True)
+    hparams['nonlinear_classifier'] = (False, lambda r: False)
+    hparams["dataset"] = (dataset, dataset)
+    hparams["domains_per_iter"] = (4, 4)
+    hparams["data_parallel"] = (True, True)
 
-    # Unconditional hparam definitions.
-
-    _hparam('data_augmentation', True, lambda r: True)
-    _hparam('resnet18', False, lambda r: False)
-    _hparam('resnet_dropout', 0., lambda r: r.choice([0., 0.1, 0.5]))
-    _hparam('class_balanced', False, lambda r: False)
-    # TODO: nonlinear classifiers disabled
-    _hparam('nonlinear_classifier', False,
-            lambda r: bool(r.choice([False, False])))
-
-    # Algorithm-specific hparam definitions. Each block of code below
-    # corresponds to exactly one algorithm.
-
-    if algorithm in ['DANN', 'CDANN']:
-        _hparam('lambda', 1.0, lambda r: 10**r.uniform(-2, 2))
-        _hparam('weight_decay_d', 0., lambda r: 10**r.uniform(-6, -2))
-        _hparam('d_steps_per_g_step', 1, lambda r: int(2**r.uniform(0, 3)))
-        _hparam('grad_penalty', 0., lambda r: 10**r.uniform(-2, 1))
-        _hparam('beta1', 0.5, lambda r: r.choice([0., 0.5]))
-        _hparam('mlp_width', 256, lambda r: int(2 ** r.uniform(6, 10)))
-        _hparam('mlp_depth', 3, lambda r: int(r.choice([3, 4, 5])))
-        _hparam('mlp_dropout', 0., lambda r: r.choice([0., 0.1, 0.5]))
-
-    elif algorithm == 'Fish':
-        _hparam('meta_lr', 0.5, lambda r:r.choice([0.05, 0.1, 0.5]))
-
-    elif algorithm == "RSC":
-        _hparam('rsc_f_drop_factor', 1/3, lambda r: r.uniform(0, 0.5))
-        _hparam('rsc_b_drop_factor', 1/3, lambda r: r.uniform(0, 0.5))
-
-    elif algorithm == "SagNet":
-        _hparam('sag_w_adv', 0.1, lambda r: 10**r.uniform(-2, 1))
-
-    elif algorithm == "IRM":
-        _hparam('irm_lambda', 1e2, lambda r: 10**r.uniform(-1, 5))
-        _hparam('irm_penalty_anneal_iters', 500,
-                lambda r: int(10**r.uniform(0, 4)))
-
-    elif algorithm == "Mixup":
-        _hparam('mixup_alpha', 0.2, lambda r: 10**r.uniform(-1, -1))
-
-    elif algorithm == "GroupDRO":
-        _hparam('groupdro_eta', 1e-2, lambda r: 10**r.uniform(-3, -1))
-
-    elif algorithm == "MMD" or algorithm == "CORAL":
-        _hparam('mmd_gamma', 1., lambda r: 10**r.uniform(-1, 1))
-
-    elif algorithm == "MLDG":
-        _hparam('mldg_beta', 1., lambda r: 10**r.uniform(-1, 1))
-
-    elif algorithm == "MTL":
-        _hparam('mtl_ema', .99, lambda r: r.choice([0.5, 0.9, 0.99, 1.]))
-
-    elif algorithm == "VREx":
-        _hparam('vrex_lambda', 1e1, lambda r: 10**r.uniform(-1, 5))
-        _hparam('vrex_penalty_anneal_iters', 500,
-                lambda r: int(10**r.uniform(0, 4)))
-
-    elif algorithm == "SD":
-        _hparam('sd_reg', 0.1, lambda r: 10**r.uniform(-5, -1))
-
-    elif algorithm == "ANDMask":
-        _hparam('tau', 1, lambda r: r.uniform(0.5, 1.))
-
-    elif algorithm == "IGA":
-        _hparam('penalty', 1000, lambda r: 10**r.uniform(1, 5))
-
-    # Dataset-and-algorithm-specific hparam definitions. Each block of code
-    # below corresponds to exactly one hparam. Avoid nested conditionals.
-
-    if dataset in SMALL_IMAGES:
-        _hparam('lr', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
+    if dataset in RESNET_DATASETS:
+        hparams["lr"] = (1e-4, 10 ** random_state.uniform(-5.5, -3.5))
+        hparams["batch_size"] = (12, 12)
     else:
-        _hparam('lr', 5e-5, lambda r: 10**r.uniform(-5, -3.5))
+        hparams["lr"] = (1e-3, 10 ** random_state.uniform(-4.5, -2.5))
+        hparams["batch_size"] = (64, int(2 ** random_state.uniform(3, 9)))
 
-    if dataset in SMALL_IMAGES:
-        _hparam('weight_decay', 0., lambda r: 0.)
+    if dataset in ["YFCC_Geo"]:
+        hparams["batch_size"] = (100, 100)
+
+    if dataset in ["ColoredMNIST", "RotatedMNIST"]:
+        hparams["weight_decay"] = (0.0, 0.0)
     else:
-        _hparam('weight_decay', 0., lambda r: 10**r.uniform(-6, -2))
+        hparams["weight_decay"] = (1e-4, 10 ** random_state.uniform(-4, -4))
 
-    if dataset in SMALL_IMAGES:
-        _hparam('batch_size', 64, lambda r: int(2**r.uniform(3, 9)))
-    elif algorithm == 'ARM':
-        _hparam('batch_size', 8, lambda r: 8)
-    elif dataset == 'DomainNet':
-        _hparam('batch_size', 32, lambda r: int(2**r.uniform(3, 5)))
-    else:
-        _hparam('batch_size', 32, lambda r: int(2**r.uniform(3, 5.5)))
+    hparams["class_balanced"] = (False, False)
 
-    if algorithm in ['DANN', 'CDANN'] and dataset in SMALL_IMAGES:
-        _hparam('lr_g', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
-    elif algorithm in ['DANN', 'CDANN']:
-        _hparam('lr_g', 5e-5, lambda r: 10**r.uniform(-5, -3.5))
+    if algorithm in ["DANN", "CDANN"]:
 
-    if algorithm in ['DANN', 'CDANN'] and dataset in SMALL_IMAGES:
-        _hparam('lr_d', 1e-3, lambda r: 10**r.uniform(-4.5, -2.5))
-    elif algorithm in ['DANN', 'CDANN']:
-        _hparam('lr_d', 5e-5, lambda r: 10**r.uniform(-5, -3.5))
+        if dataset in RESNET_DATASETS:
+            hparams["lr_g"] = (5e-5, 5e-5)
+            hparams["lr_d"] = (5e-5, 5e-5)
+        else:
+            hparams["lr_g"] = (1e-3, 1e-3)
+            hparams["lr_d"] = (1e-3, 1e-3)
 
-    if algorithm in ['DANN', 'CDANN'] and dataset in SMALL_IMAGES:
-        _hparam('weight_decay_g', 0., lambda r: 0.)
-    elif algorithm in ['DANN', 'CDANN']:
-        _hparam('weight_decay_g', 0., lambda r: 10**r.uniform(-6, -2))
+        if dataset in ["ColoredMNIST", "RotatedMNIST"]:
+            hparams["weight_decay_g"] = (0.0, 0.0)
+        else:
+            hparams["weight_decay_g"] = (0.0, 0.0)
 
+        hparams["lambda"] = (1.0, 1.0)
+        hparams["weight_decay_d"] = (0.0, 0.0)
+        hparams["d_steps_per_g_step"] = (1, 1)
+        hparams["grad_penalty"] = (0.0, 0.0)
+        hparams["beta1"] = (0.5, 0.5)
+
+    if algorithm.startswith("Proto"):
+        # optimizer params
+        hparams["proto_lr"] = (1e-6, 10 ** random_state.uniform(-7, -5))
+        hparams["proto_weight_decay"] = (1e-5, 10 ** random_state.uniform(-6, -5))
+        hparams["proto_domains_per_iter"] = (4, 4)
+
+        # number of rounds of mixup to be done
+        hparams["mixup"] = (1.0, 1.0)
+
+        # architecture params
+        hparams["bottleneck_size"] = (1024, 1024)
+
+        # pipeline params and model loading
+        # train_prototype tells whether we want to train prototype model or not
+        hparams["train_prototype"] = (True, True)
+        # proto_model tells path to directory where prototype model is stored
+        # prototype model must be called "prototype_final.pth" within this dir
+        hparams["proto_model"] = ("/data/dubeya/domain_generalization/outputs/pacs/", "/data/dubeya/domain_generalization/outputs/pacs/")
+        # fraction of total files to be used to construct prototype
+        hparams["proto_train_frac"] = (0.2, 0.2)
+
+        # logging frequency
+        hparams["proto_log_train_step"] = (20, 20)
+        hparams["proto_log_avg_step"] = (50, 50)
+
+    hparams["resnet_dropout"] = (0.0, float(random_state.choice([0.0, 0.1, 0.5])))
+
+    # TODO clean this up
+    hparams.update(
+        {
+            a: (b, c)
+            for a, b, c in [
+                # IRM
+                ("irm_lambda", 1e2, 10 ** random_state.uniform(-1, 5)),
+                (
+                    "irm_penalty_anneal_iters",
+                    500,
+                    int(10 ** random_state.uniform(0, 4)),
+                ),
+                # Mixup
+                ("mixup_alpha", 0.2, 10 ** random_state.uniform(-1, -1)),
+                # GroupDRO
+                ("groupdro_eta", 1e-2, 10 ** random_state.uniform(-3, -1)),
+                # MMD
+                ("mmd_gamma", 0.1, 10 ** random_state.uniform(-1, 1)),
+                # MLP
+                ("mlp_width", 256, int(2 ** random_state.uniform(6, 10))),
+                ("mlp_depth", 3, int(random_state.choice([3, 4, 5]))),
+                ("mlp_dropout", 0.0, float(random_state.choice([0.0, 0.1, 0.5]))),
+                # MLDG
+                ("mldg_beta", 1.0, 10 ** random_state.uniform(-1, 1)),
+            ]
+        }
+    )
     return hparams
 
 
 def default_hparams(algorithm, dataset):
-    return {a: b for a, (b, c) in _hparams(algorithm, dataset, 0).items()}
+    dummy_random_state = np.random.RandomState(0)
+    return {
+        a: b for a, (b, c) in _hparams(algorithm, dataset, dummy_random_state).items()
+    }
 
 
 def random_hparams(algorithm, dataset, seed):
-    return {a: c for a, (b, c) in _hparams(algorithm, dataset, seed).items()}
+    random_state = np.random.RandomState(seed)
+    return {a: c for a, (b, c) in _hparams(algorithm, dataset, random_state).items()}

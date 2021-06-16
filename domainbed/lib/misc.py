@@ -17,6 +17,27 @@ import numpy as np
 import torch
 import tqdm
 from collections import Counter
+import torch.nn.functional as F
+
+
+def cross_entropy(x, y):
+    """ Wrapper around cross-entropy to allow for both one-hot and many-hot
+        combinations (many hot version is scaled accordingly). """
+
+    if len(y.shape) == 1:
+        return F.cross_entropy(x, y)
+    if y.shape[1] == 1:
+        y = y.squeeze(1)
+        return F.cross_entropy(x, y)
+
+    return torch.mean(
+        torch.div(
+            F.binary_cross_entropy_with_logits(x, y, reduction="none"),
+            torch.sum(y, dim=1),
+        )
+    )
+
+
 
 def make_weights_for_balanced_classes(dataset):
     counts = Counter()
@@ -108,25 +129,25 @@ def random_pairs_of_minibatches(minibatches):
 
     return pairs
 
-def accuracy(network, loader, weights, device):
+def accuracy(network, loader, device, proto=0):
     correct = 0
     total = 0
-    weights_offset = 0
 
     network.eval()
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device)
             y = y.to(device)
-            p = network.predict(x)
-            if weights is None:
-                batch_weights = torch.ones(len(x))
+
+            if proto >= 0:
+                p = network.predict(x, proto, device)
             else:
-                batch_weights = weights[weights_offset : weights_offset + len(x)]
-                weights_offset += len(x)
-            batch_weights = batch_weights.to(device)
+                p = network.predict(x)
+            batch_weights = torch.ones(len(x))
+
+            batch_weights = batch_weights.cuda()
             if p.size(1) == 1:
-                correct += (p.gt(0).eq(y).float() * batch_weights.view(-1, 1)).sum().item()
+                correct += (p.gt(0).eq(y).float() * batch_weights).sum().item()
             else:
                 correct += (p.argmax(1).eq(y).float() * batch_weights).sum().item()
             total += batch_weights.sum().item()

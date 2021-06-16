@@ -116,6 +116,56 @@ class ResNet(torch.nn.Module):
                 m.eval()
 
 
+class ResNet50(torch.nn.Module):
+    """ResNet50 with the softmax chopped off and the batchnorm frozen"""
+
+    n_outputs = 2048
+
+    def __init__(self, hparams):
+        super(ResNet50, self).__init__()
+        # self.network = torchvision.models.resnet18(pretrained=True)
+
+        network_fn = getattr(torchvision.models, hparams["model"].lower())
+        self.network = network_fn(pretrained=False)
+
+        try:
+            model_path = os.path.join(hparams["model_dir"], hparams["model"] + ".pth")
+            self.network.load_state_dict(torch.load(model_path))
+        except:
+            self.network = network_fn(pretrained=True)
+
+        self.freeze_bn()
+        self.hparams = hparams
+        self.dropout = nn.Dropout(hparams["resnet_dropout"])
+
+    def forward(self, x):
+        """Encode x into a feature vector of size n_outputs."""
+        x = self.network.conv1(x)
+        x = self.network.bn1(x)
+        x = self.network.relu(x)
+        x = self.network.maxpool(x)
+        x = self.network.layer1(x)
+        x = self.network.layer2(x)
+        x = self.network.layer3(x)
+        x = self.network.layer4(x)
+        x = self.network.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
+        return x
+
+    def train(self, mode=True):
+        """
+        Override the default train() to freeze the BN parameters
+        """
+        super().train(mode)
+        self.freeze_bn()
+
+    def freeze_bn(self):
+        for m in self.network.modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.eval()
+
+
 class MNIST_CNN(nn.Module):
     """
     Hand-tuned architecture for MNIST.
@@ -226,3 +276,14 @@ class WholeFish(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+def Featurizer(input_shape, hparams):
+    """Auto-select an appropriate featurizer for the given input shape."""
+    if input_shape == (2048,):
+        return MLP(2048, 128, hparams)
+    elif input_shape[1:3] == (28, 28):
+        return MNIST_CNN(input_shape)
+    elif input_shape == (3, 32, 32):
+        return wide_resnet.Wide_ResNet(16, 2, 0.0)
+    elif input_shape == (3, 224, 224):
+        return ResNet50(hparams)

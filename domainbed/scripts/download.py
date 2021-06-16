@@ -11,8 +11,8 @@ import uuid
 import json
 import os
 
-from wilds.datasets.camelyon17_dataset import Camelyon17Dataset
-from wilds.datasets.fmow_dataset import FMoWDataset
+# from wilds.datasets.camelyon17_dataset import Camelyon17Dataset
+# from wilds.datasets.fmow_dataset import FMoWDataset
 
 
 # utils #######################################################################
@@ -143,8 +143,8 @@ def download_domain_net(data_dir):
     full_path = stage_path(data_dir, "domain_net")
 
     urls = [
-        "http://csr.bu.edu/ftp/visda/2019/multi-source/groundtruth/clipart.zip",
-        "http://csr.bu.edu/ftp/visda/2019/multi-source/infograph.zip",
+        # "http://csr.bu.edu/ftp/visda/2019/multi-source/groundtruth/clipart.zip",
+        # "http://csr.bu.edu/ftp/visda/2019/multi-source/infograph.zip",
         "http://csr.bu.edu/ftp/visda/2019/multi-source/groundtruth/painting.zip",
         "http://csr.bu.edu/ftp/visda/2019/multi-source/quickdraw.zip",
         "http://csr.bu.edu/ftp/visda/2019/multi-source/real.zip",
@@ -264,9 +264,9 @@ if __name__ == "__main__":
     # download_mnist(args.data_dir)
     # download_pacs(args.data_dir)
     # download_office_home(args.data_dir)
-    # download_domain_net(args.data_dir)
-    # download_vlcs(args.data_dir)
-    # download_terra_incognita(args.data_dir)
-    # download_sviro(args.data_dir)
+    download_domain_net(args.data_dir)
+    download_vlcs(args.data_dir)
+    download_terra_incognita(args.data_dir)
+    download_sviro(args.data_dir)
     # Camelyon17Dataset(root_dir=args.data_dir, download=True)
-    FMoWDataset(root_dir=args.data_dir, download=True)
+    # FMoWDataset(root_dir=args.data_dir, download=True)
